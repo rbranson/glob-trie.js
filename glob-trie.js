@@ -34,9 +34,14 @@ module.exports = GlobTrie = function() {
     this._node = new GlobTrie.Node();
 };
 
-// Adds a matcher to the trie with a payload
+// Adds a payload to the tree for an expression
 GlobTrie.prototype.add = function(expr, payload) {
     GlobTrie.add(this._node, expr, payload);
+};
+
+// Removes a payload from the trie for an expression
+GlobTrie.prototype.remove = function(expr, payload) {
+    GlobTrie.remove(this._node, expr, payload);
 };
 
 // Searches for matches in the trie, calling f at each node
@@ -55,8 +60,14 @@ GlobTrie.prototype.collect = function(s) {
     return ret;
 };
 
+// Dumps the trie structure to the console
 GlobTrie.prototype.print = function() {
     GlobTrie.print(this._node);
+};
+
+// Returns the number of nodes in the trie
+GlobTrie.prototype.nodeCount = function() {
+    return GlobTrie.count(this._node);
 };
 
 // Represents a single node in the trie structure
@@ -67,16 +78,42 @@ GlobTrie.Node = function(parent, sexpr) {
     this.payloads   = [];
 };
 
+// Is this the root node?
 GlobTrie.Node.prototype.isRoot = function() {
     return (this.parent == null);
 };
 
+// Is this node prunable? (empty children and empty payloads)
+GlobTrie.Node.prototype.isPrunable = function() {
+    return (this.children.length == 0 && this.payloads.length == 0);
+};
+
+// Add a payload object from this node
 GlobTrie.Node.prototype.addPayload = function(payload) {
     this.payloads.push(payload);
 };
 
+// Remove a payload object from this node
+GlobTrie.Node.prototype.removePayload = function(payload) {
+    var idx = this.payloads.indexOf(payload);
+    
+    if (idx != -1) {
+        this.payloads.splice(idx, 1);
+    }
+};
+
+// Add a child node to this node
 GlobTrie.Node.prototype.addChild = function(child) {
     this.children.push(child);
+};
+
+// Remove a child node from this node
+GlobTrie.Node.prototype.removeChild = function(child) {
+    var idx = this.children.indexOf(child);
+    
+    if (idx != -1) {
+        this.children.splice(idx, 1);
+    }
 };
 
 // An Expression is for matching single characters. Initialized with
@@ -106,7 +143,7 @@ GlobTrie.Expression.prototype.equals = function(other) {
 };
 
 GlobTrie.Expression.prototype.toString = function() {
-    return this.sexpr;
+    return "<xpr='" + this.sexpr + "'>";
 };
 
 // Reads the first expression off a raw expression string and returns
@@ -158,6 +195,41 @@ GlobTrie.add = function(node, expr, payload) {
     }
 };
 
+// The recursive function that removes an expression payload from the tree
+GlobTrie.remove = function(node, expr, payload) {
+    if (expr.length == 0) {
+        // end of expression, so remove the payload
+        node.removePayload(payload);
+    }
+    else if (expr.length > 0) {
+        // we have some expression left, so keep goin        
+        var x       = new GlobTrie.Expression.nextExpr(expr),
+            prune   = [];
+    
+        // find any matching children and descend
+        for (var i = 0, len = node.children.length; i < len; i++) {
+            var child = node.children[i];
+    
+            if (child.sexpr.equals(x.sexpr)) {
+                // We've got a match of our subexpression, so now we descend!
+                GlobTrie.remove(child, x.string, payload);
+            }
+
+            // Check to see if child needs to be pruned -- we have to push this off
+            // onto another list for pruning later because if we prune now, we'll screw
+            // up the children list we're currently iterating over.
+            if (child.isPrunable()) {
+                prune.push(child);
+            }
+        }
+        
+        // Go ahead and remove all the prunable children
+        for (var i = 0, len = prune.length; i < len; i++) {
+            node.removeChild(prune[i]);
+        }
+    }
+};
+
 // The recursive function that walks the tree, searching for s, calling f at each matching node
 GlobTrie.walk = function(node, s, f) {
     function recurseChildren(rstr) {
@@ -195,6 +267,20 @@ GlobTrie.walk = function(node, s, f) {
     }
 };
 
+// Counts the number of nodes in a tree
+GlobTrie.count = function(node) {
+    var nc  = node.children,
+        ncl = nc.length,
+        tab = ncl;
+    
+    for (var i = 0, len = ncl; i < len; i++) {
+        tab += GlobTrie.count(nc[i]);
+    }
+    
+    return tab;
+};
+
+// Dumps the trie structure to the console
 GlobTrie.print = function(node, depth) {
     depth = depth || 0;
 
