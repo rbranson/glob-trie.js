@@ -1,0 +1,93 @@
+var GlobTrie = require("./glob-trie");
+
+var ITERATIONS = 1000;
+
+PROTOCOLS = [
+    "http://",
+    "ftp://",
+    "*://"
+]
+
+HOSTS = [
+    "www.google.com",
+    "*.google.com",
+    "www.*.com",
+    "nodejs.org",
+    "www.nodejs.org",
+    "*.nodejs.org",
+    "*.com",
+    "*.net",
+    "*.org",
+    "*.??",
+    "www.yahoo.com",
+    "*.yahoo.com",
+    "yahoo.com",
+    "*facebook.com",
+    "*youtube.com",
+    "*wikipedia.org",
+    "*twitter.com",
+    "*amazon.com"
+]
+
+PATHS = [
+    "/index.html",
+    "/robots.txt",
+    "/path/to/stuff.html",
+    "/*/index.html",
+    "/*",
+    "/docs",
+    "/mail",
+    "/mail/messages/1",
+    "/mail/messages/2",
+    "/mail/messages/3",
+    "/mail/messages/4",
+    "/mail/messages/5",
+    "/mail/messages/6",
+    "/mail/messages/7",
+    "/mail/messages/8",
+    "/mail/messages/9",
+    "/mail/messages/10",
+    "/mail/messages/11",
+    "/mail/messages/*",
+    "/mail/*",
+    "/m*"
+]
+
+var trie = new GlobTrie();
+
+for (var a = 0, alen = PROTOCOLS.length; a < alen; a++) {
+    for (var b = 0, blen = HOSTS.length; b < blen; b++) {
+        for (var c = 0, clen = PATHS.length; c < clen; c++) {
+            var matcher = PROTOCOLS[a] + HOSTS[b] + PATHS[c];
+            trie.add(matcher, matcher);
+        }
+    }
+}
+
+STRINGS = [
+    "http://www.amazon.com/docs",
+    "ftp://google.com/mail",
+    "smtp://facebook.com/mail/messages/10",
+    "http://www.nodejs.org/sucks",
+    "http://twitter.com/rbranson",
+    "http://poop.to/person/index.html",
+    "http://mail.yahoo.com/robots.txt",
+    "http://youtube.com/terms-of-serivce/index.html",
+    "http://www.ycombinator.com/paul-graham-sucks",
+    "http://www.cnn.com/"
+];
+
+var totalMatches    = 0,
+    totalAttempts   = 0;
+
+for (var i = 0; i < ITERATIONS; i++) {
+    for (var x = 0, len = STRINGS.length; x < len; x++) {
+        var matches = trie.collect(STRINGS[x]);
+        totalMatches += matches.length;
+        totalAttempts++;
+    }
+}
+
+console.log("Total Operations: " + totalAttempts);
+console.log("Total Found: " + totalMatches);
+console.log("Effective Operations: " + (totalAttempts * PROTOCOLS.length * HOSTS.length * PATHS.length));
