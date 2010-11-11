@@ -5,6 +5,7 @@ var ITERATIONS = 1000;
 PROTOCOLS = [
     "http://",
     "ftp://",
+    "smtp://",
     "*://"
 ]
 
@@ -37,6 +38,30 @@ PATHS = [
     "/*",
     "/docs",
     "/mail",
+    "/docs/1",
+    "/docs/2",
+    "/docs/3",
+    "/docs/4",
+    "/docs/5",
+    "/docs/6",
+    "/docs/7",
+    "/docs/8",
+    "/docs/9",
+    "/docs/10",
+    "/docs/11",
+    "/docs/12",
+    "/docs/13",
+    "/docs/14",
+    "/docs/15",
+    "/docs/16",
+    "/docs/17",
+    "/docs/18",
+    "/docs/19",
+    "/docs/20",
+    "/docs/21",
+    "/docs/22",
+    "/docs/23",
+    "/docs/*",
     "/mail/messages/1",
     "/mail/messages/2",
     "/mail/messages/3",
@@ -53,13 +78,15 @@ PATHS = [
     "/m*"
 ]
 
-var trie = new GlobTrie();
+var trie        = new GlobTrie(),
+    totalExpr   = 0;
 
 for (var a = 0, alen = PROTOCOLS.length; a < alen; a++) {
     for (var b = 0, blen = HOSTS.length; b < blen; b++) {
         for (var c = 0, clen = PATHS.length; c < clen; c++) {
             var matcher = PROTOCOLS[a] + HOSTS[b] + PATHS[c];
             trie.add(matcher, matcher);
+            totalExpr++;
         }
     }
 }
@@ -88,6 +115,7 @@ for (var i = 0; i < ITERATIONS; i++) {
     }
 }
 
+console.log("Total Expressions: " + totalExpr);
 console.log("Total Operations: " + totalAttempts);
 console.log("Total Found: " + totalMatches);
 console.log("Effective Operations: " + (totalAttempts * PROTOCOLS.length * HOSTS.length * PATHS.length));
