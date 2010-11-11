@@ -36,12 +36,12 @@ module.exports = GlobTrie = function() {
 
 // Adds a payload to the tree for an expression
 GlobTrie.prototype.add = function(expr, payload) {
-    GlobTrie.add(this._node, expr, payload);
+    GlobTrie.add(this._node, GlobTrie.compile(expr), payload);
 };
 
 // Removes a payload from the trie for an expression
 GlobTrie.prototype.remove = function(expr, payload) {
-    GlobTrie.remove(this._node, expr, payload);
+    GlobTrie.remove(this._node, GlobTrie.compile(expr), payload);
 };
 
 // Searches for matches in the trie, calling f at each node
@@ -116,69 +116,55 @@ GlobTrie.Node.prototype.removeChild = function(child) {
     }
 };
 
-// An Expression is for matching single characters. Initialized with
-// a single character, it's will match exactly. There are special matchers
-// such as :* which will do a greedy match, and :?, which will do a single
-// character wildcard match.
-GlobTrie.Expression = function(sexpr) {
-    this.sexpr = sexpr;
-};
-
-// Returns the number of characters that should be matched, if it's
-// -1, that means do a greedy match.
-GlobTrie.Expression.prototype.match = function(sexpr) {
-    if (this.sexpr == ":*") {
-        return -1;
-    }
-    else if ((this.sexpr == ":?" && sexpr.length == 1) || this.sexpr == sexpr) {
-        return 1;
-    }
-    else {
-        return 0;
-    }
-};
-
-GlobTrie.Expression.prototype.equals = function(other) {
-    return (other.sexpr == this.sexpr);
-};
-
-GlobTrie.Expression.prototype.toString = function() {
-    return "<xpr='" + this.sexpr + "'>";
-};
-
-// Reads the first expression off a raw expression string and returns
-// an object that contains an "sexpr" Expression member and a "string" member,
-// which contains the input string minus the characters removed for
-// the expression that was emitted.
-GlobTrie.Expression.nextExpr = function(str) {
-    var first = str.charAt(0);
+// Parses an expression into an array of valid sexprs
+GlobTrie.compile = function(expr) {
+    var out = [];
     
-    if (first == "\\") {
-        return { sexpr: new GlobTrie.Expression(str.charAt(1)), string: str.substring(2) };
+    for (var i = 0, len = expr.length; i < len; i++) {
+        var c = expr.charAt(i);
+        
+        switch (c) {
+            case "\\":
+                out.push(expr.charAt(++i));
+                break;
+            case "*":
+            case "?":
+            // case "(":
+            // case ")":
+            // case "[":
+            // case "]":
+                out.push(":" + c);
+                break;
+            default:
+                out.push(c);
+                break;
+        }
     }
-    else if (first == "*" || first == "?") {
-        return { sexpr: new GlobTrie.Expression(":" + first), string: str.substring(1) };        
-    }
-    else {
-        return { sexpr: new GlobTrie.Expression(first), string: str.substring(1) };
-    }
+    
+    out.push(":E");
+    
+    return out;
 };
 
-// The recursive function that adds an expression to the tree with a payload
-GlobTrie.add = function(node, expr, payload) {
-    if (expr.length == 0) {
+// The recursive function that adds a parsed expression to the tree with a payload
+GlobTrie.add = function(node, pexpr, payload, pos) {
+    // Start at the zero position of the parsed expression
+    pos = pos || 0;
+    
+    if (pos == pexpr.length) {
         // we've reached terminal state, so drop our payload
         node.addPayload(payload);
     }
     else {
-        var x = new GlobTrie.Expression.nextExpr(expr);
-        var m;
+        var sexpr   = pexpr[pos],
+            nc      = node.children,
+            m;
         
         // find any matching children        
-        for (var i = 0, len = node.children.length; i < len; i++) {
-            var child = node.children[i];
+        for (var i = 0, len = nc.length; i < len; i++) {
+            var child = nc[i];
         
-            if (child.sexpr.equals(x.sexpr)) {
+            if (child.sexpr == sexpr) {
                 m = child;
                 break;
             }
@@ -186,33 +172,39 @@ GlobTrie.add = function(node, expr, payload) {
         
         if (!m) {
             // we didn't get a match, so create it!
-            m = new GlobTrie.Node(node, x.sexpr);
+            m = new GlobTrie.Node(node, sexpr);
             node.addChild(m);
         }
         
-        // now descend down, shifting the "sexpr" off the evaluation string
-        GlobTrie.add(m, x.string, payload);
+        // now descend down, moving forward one position
+        GlobTrie.add(m, pexpr, payload, pos + 1);
     }
 };
 
-// The recursive function that removes an expression payload from the tree
-GlobTrie.remove = function(node, expr, payload) {
-    if (expr.length == 0) {
+// The recursive function that removes a payload from the tree by parsed expression
+GlobTrie.remove = function(node, pexpr, payload, pos) {
+    var pexprlen = pexpr.length;
+    
+    // Start at the zero position of the parsed expression
+    pos = pos || 0;
+
+    if (pos == pexprlen) {
         // end of expression, so remove the payload
         node.removePayload(payload);
     }
-    else if (expr.length > 0) {
+    else if (pexprlen > 0) {
         // we have some expression left, so keep goin        
-        var x       = new GlobTrie.Expression.nextExpr(expr),
+        var nc      = node.children,
+            sexpr   = pexpr[pos],
             prune   = [];
     
         // find any matching children and descend
-        for (var i = 0, len = node.children.length; i < len; i++) {
-            var child = node.children[i];
+        for (var i = 0, len = nc.length; i < len; i++) {
+            var child = nc[i];
     
-            if (child.sexpr.equals(x.sexpr)) {
+            if (child.sexpr == sexpr) {
                 // We've got a match of our subexpression, so now we descend!
-                GlobTrie.remove(child, x.string, payload);
+                GlobTrie.remove(child, pexpr, payload, pos + 1);
             }
 
             // Check to see if child needs to be pruned -- we have to push this off
@@ -230,40 +222,45 @@ GlobTrie.remove = function(node, expr, payload) {
     }
 };
 
-// The recursive function that walks the tree, searching for s, calling f at each matching node
-GlobTrie.walk = function(node, s, f) {
-    function recurseChildren(rstr) {
-        for (var i = 0, len = node.children.length; i < len; i++) {
-		    GlobTrie.walk(node.children[i], rstr, f);
-		}
-    }
+// The recursive function that walks the tree, searching for s, calling f at each matching termination
+GlobTrie.walk = function(node, s, f, pos) {
+    // NOTE: the repetition of the node children iteration + recursion call seem ridiculous, but the performance
+    // pay-off for not, say, wrapping these up in a function, is that the walker runs 30-40% faster.
+
+    // default to string position 0
+    pos = pos || 0;
+    
+    var nc = node.children;
 
     // If we're at the root, don't even try to match, just go for it
     if (node.isRoot()) {
-        recurseChildren(s);
+        for (var i = 0, len = nc.length; i < len; i++) {
+		    GlobTrie.walk(nc[i], s, f, pos);
+		}
     }
     else {
-        var m = node.sexpr.match(s.charAt(0));
-        
-        if (m == -1) {
+        var c       = s.charAt(pos),
+            sexpr   = node.sexpr;
+
+	    if (c.length > 0 && (sexpr == ":?" || sexpr == c)) {
+    	    // So we have matched either the single-char wildcard or the exact match, we're good, move forth
+    	    for (var i = 0, len = nc.length; i < len; i++) {
+    		    GlobTrie.walk(nc[i], s, f, pos + 1);
+    		}
+        }
+        else if (sexpr == ":*") {
             // holy crap, we've got a match, but now we've got to really work hard to try to find
             // a child that matches ANY character in the rest of the string.
-            f(node);
-            
-            // move forward in the string one char at a time, trying all children
-            for (var i = 0, len = s.length; i < len; i++) {
-                recurseChildren(s.substring(i));
+            for (var si = pos, slen = s.length; si <= slen; si++) {
+        	    for (var i = 0, len = nc.length; i < len; i++) {
+        		    GlobTrie.walk(nc[i], s, f, si);
+        		}
             }
         }
-    	else if (m == 1) {
-    	    // we're actually at a terminal state, so go ahead and call the func
-    	    if (s.length == 1) {                
-    	        f(node);
-    	    }
-        	
-        	// So we have matched either the single-char wildcard or the exact match, we're good, move forth
-        	recurseChildren(s.substring(1));
-    	}
+        else if (sexpr == ":E" && pos == s.length) {
+            // Match the end of expression to the end of the string
+            f(node);
+        }
     }
 };
 
@@ -279,6 +276,7 @@ GlobTrie.count = function(node) {
     
     return tab;
 };
+
 
 // Dumps the trie structure to the console
 GlobTrie.print = function(node, depth) {
