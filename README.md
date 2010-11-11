@@ -2,6 +2,16 @@
 
 A way to match strings against a large set of pattern matching expressions quickly. It breaks down the pattern matchers into pieces and organizes them in a Trie (prefix search tree) structure, allowing them to be searched in roughly logarithmic time, versus linear time for just an array of regular expressions, for instance.
 
+## Installation
+
+Using NPM:
+  
+    $ npm install glob-trie.js
+    
+Now a simple require will bring it on:
+
+    var GlobTrie = require("glob-trie.js");
+
 ## Notes
 
 * This is very much a work in progress.
