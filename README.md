@@ -5,7 +5,6 @@ A way to match strings against a large set of pattern matching expressions quick
 ## Notes
 
 * This is very much a work in progress.
-* Doesn't support removal of expressions yet.
 * Has very limit expression set.
 
 ## Expression Support
@@ -30,6 +29,9 @@ Currently GlobTrie only supports a very small set of pattern matching tools, sim
     trie.collect("http://www.nodejs.org/"); // => [ "A .org website", "A website!" ]
     trie.collect("ftp://ftp.cdrom.com/");   // => []
     trie.collect("http://t.co/");           // => [ "A 2-character TLD website!", "A website!" ]
+    
+    trie.remove("http://*/", "A website!");
+    trie.collect("http://t.co/");           // => [ "A 2-character TLD website!" ]
 
 ## Performance
 
