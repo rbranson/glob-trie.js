@@ -83,9 +83,9 @@ for (var a = 0, alen = PROTOCOLS.length; a < alen; a++) {
     for (var b = 0, blen = HOSTS.length; b < blen; b++) {
         for (var c = 0, clen = PATHS.length; c < clen; c++) {
             var s = PROTOCOLS[a] + HOSTS[b] + PATHS[c],
-                m = s.replace(/\//, "\\/").replace(/\./, "\\.").replace(/\*/, ".*").replace("?", ".");
+                m = s.replace(/\//g, "\\/").replace(/\./g, "\\.").replace(/\*/g, ".*").replace(/\?/g, ".");
             
-            expressions.push(new RegExp(m));
+            expressions.push(new RegExp("^" + m + "$"));
             totalExpr++;
         }
     }

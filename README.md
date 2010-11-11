@@ -50,10 +50,9 @@ For the array of regular expressions implementation:
     $ time node brute-perf.js
     Total Expressions: 3240
     Total Operations: 10000
-    Total Found: 81000
+    Total Found: 76000
     Effective Operations: 32400000
 
-    real	0m46.223s
-    user	0m45.810s
+    real	0m21.804s
 
 Big difference! Note that because it's a logarithmic algorithm, the difference between the two will get wider and wider as the size of the expression list grows.
