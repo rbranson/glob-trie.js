@@ -38,21 +38,21 @@ Using the brute-perf.js and perf.js scripts, performance can be compared.
 For the GlobTrie implementation:
 
     $ time node perf.js
-    Total Expressions: 3240
+    Total Expressions: 9720
     Total Operations: 10000
     Total Found: 76000
-    Effective Operations: 32400000
+    Effective Operations: 97200000
 
-    real	0m0.956s
+    real	0m1.105s
 
 For the array of regular expressions implementation:
 
     $ time node brute-perf.js
-    Total Expressions: 3240
+    Total Expressions: 9720
     Total Operations: 10000
     Total Found: 76000
-    Effective Operations: 32400000
+    Effective Operations: 97200000
 
-    real	0m21.804s
+    real	0m54.990s
 
 Big difference! Note that because it's a logarithmic algorithm, the difference between the two will get wider and wider as the size of the expression list grows.

@@ -4,6 +4,14 @@ PROTOCOLS = [
     "http://",
     "ftp://",
     "smtp://",
+    "telnet://",
+    "gopher://",
+    "git://",
+    "3270://",
+    "sftp://",
+    "https://",
+    "ldap://",
+    "nttp://",
     "*://"
 ]
 
