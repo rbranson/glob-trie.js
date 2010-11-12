@@ -152,5 +152,91 @@ assert.ok(urlTrie.nodeCount() < beforeCount); // should prune some stuff
 
 ///////////////////////////////////////
 
+var classTrie = new GlobTrie();
+
+classTrie.add("[a-zA-Z0-9]", "[a-zA-Z0-9]");
+classTrie.add("[0-9]*", "[0-9]*");
+classTrie.add("*[0-9]", "*[0-9]");
+classTrie.add("*[0-9]*", "*[0-9]*");
+classTrie.add("[\\[\\]\\?\\(\\)\\.\\*\\\\]", "[\\[\\]\\?\\(\\)\\.\\*\\\\]");
+classTrie.add("[^0-9]", "[^0-9]");
+
+assert.ok(classTrie.collect("This won't match anything").length == 0);
+
+assert.equal(JSON.stringify(classTrie.collect("0").sort()), JSON.stringify([
+    "[a-zA-Z0-9]",
+    "[0-9]*",
+    "*[0-9]",
+    "*[0-9]*"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("1").sort()), JSON.stringify([
+    "[a-zA-Z0-9]",
+    "[0-9]*",
+    "*[0-9]",
+    "*[0-9]*"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("100").sort()), JSON.stringify([
+    "[0-9]*",
+    "*[0-9]",
+    "*[0-9]*",
+    "*[0-9]*",
+    "*[0-9]*" // TODO: We get this once per char, is that necessary?
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("abc1").sort()), JSON.stringify([
+    "*[0-9]",
+    "*[0-9]*"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("1abc").sort()), JSON.stringify([
+    "[0-9]*",
+    "*[0-9]*"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("a").sort()), JSON.stringify([
+    "[a-zA-Z0-9]",
+    "[^0-9]"
+].sort()));
+
+// Test all of our escape patterns now
+assert.equal(JSON.stringify(classTrie.collect("[").sort()), JSON.stringify([
+    "[\\[\\]\\?\\(\\)\\.\\*\\\\]",
+    "[^0-9]"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("]").sort()), JSON.stringify([
+    "[\\[\\]\\?\\(\\)\\.\\*\\\\]",
+    "[^0-9]"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("(").sort()), JSON.stringify([
+    "[\\[\\]\\?\\(\\)\\.\\*\\\\]",
+    "[^0-9]"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect(")").sort()), JSON.stringify([
+    "[\\[\\]\\?\\(\\)\\.\\*\\\\]",
+    "[^0-9]"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect(".").sort()), JSON.stringify([
+    "[\\[\\]\\?\\(\\)\\.\\*\\\\]",
+    "[^0-9]"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("?").sort()), JSON.stringify([
+    "[\\[\\]\\?\\(\\)\\.\\*\\\\]",
+    "[^0-9]"
+].sort()));
+
+assert.equal(JSON.stringify(classTrie.collect("\\").sort()), JSON.stringify([
+    "[\\[\\]\\?\\(\\)\\.\\*\\\\]",
+    "[^0-9]"
+].sort()));
+
+///////////////////////////////////////
+
 console.log("");
 console.log("All tests passed!");

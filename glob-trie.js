@@ -25,9 +25,11 @@
 // wildcard matchers, potentially thousands or tens of thousands. Currently
 // supports simple matchers:
 //
-//   *    will match any character 0 to infinity times
-//   ?    will match any character once
-//   \    will escape a matcher
+//   *      will match any character 0 to infinity times
+//   ?      will match any character once
+//   \      will escape * and ? and [ and ]
+//   [...]  will match a RegExp-compatible character class once
+//   anything else gets matched at face value
 //
 
 module.exports = GlobTrie = function() {
@@ -73,7 +75,7 @@ GlobTrie.prototype.nodeCount = function() {
 // Represents a single node in the trie structure
 GlobTrie.Node = function(parent, sexpr) {
     this.parent     = parent || null;
-    this.sexpr      = sexpr || null;
+    this.sexpr      = sexpr || null;  // assumed to be immutable
     this.children   = [];
     this.payloads   = [];
 };
@@ -116,28 +118,70 @@ GlobTrie.Node.prototype.removeChild = function(child) {
     }
 };
 
+// Returns a RegExp to match this node's sexpr
+GlobTrie.Node.prototype.matcher = function() {
+    if (!this._matcher) {
+        var m = this.sexpr.match(GlobTrie.Node.matchBracketGuts);
+                
+        if (m) {
+            // FUTURE: we have to re-escape these, cleaner way?
+            var guts = m[1].replace(/([\[\]\(\)\]\*\?\.\\])/g, "\\$1"); 
+            this._matcher = new RegExp("^[" + guts + "]$");
+        }
+    }
+    
+    return this._matcher;
+};
+
+GlobTrie.Node.matchBracketGuts = /^:\[(.*?)\]$/;
+
 // Parses an expression into an array of valid sexprs
 GlobTrie.compile = function(expr) {
-    var out = [];
+    var out     = [],
+        isobrk  = false, // in search of bracket flag
+        bufrng  = false, // adding stuff to buffer flag
+        buf     = "";
     
     for (var i = 0, len = expr.length; i < len; i++) {
         var c = expr.charAt(i);
         
-        switch (c) {
-            case "\\":
-                out.push(expr.charAt(++i));
-                break;
-            case "*":
-            case "?":
-            // case "(":
-            // case ")":
-            // case "[":
-            // case "]":
-                out.push(":" + c);
-                break;
-            default:
-                out.push(c);
-                break;
+        if (c == "\\") {
+            nextc = expr.charAt(++i);
+            
+            if (bufrng) {
+                buf += nextc;
+            }
+            else {
+                out.push(nextc);
+            }
+        }
+        else if (isobrk) {
+            if (c == "]") {
+                isobrk  =   false;
+                bufrng  =   false;
+                out.push(":[" + buf + "]");
+            }
+            else {
+                buf += c;
+            }
+        }
+        else {
+            switch (c) {
+                case "[":
+                    isobrk = true;
+                    bufrng = true;
+                    break;
+                case "]":
+                    throw "GlobTrie.compile error: stray right bracket encountered.";
+                    break;
+                case "*":
+                case "?":
+                    out.push(":" + c);
+                    break;
+                default:
+                    out.push(c);
+                    break;
+            }
         }
     }
     
@@ -225,7 +269,9 @@ GlobTrie.remove = function(node, pexpr, payload, pos) {
 // The recursive function that walks the tree, searching for s, calling f at each matching termination
 GlobTrie.walk = function(node, s, f, pos) {
     // NOTE: the repetition of the node children iteration + recursion call seem ridiculous, but the performance
-    // pay-off for not, say, wrapping these up in a function, is that the walker runs 30-40% faster.
+    // pay-off for not, say, wrapping these up in a function, is that the walker runs 30-40% faster. In addition,
+    // there's plenty of other things in here that look silly and redundant, that contribute to another 20%+
+    // boost, like length checking a string before comparison.
 
     // default to string position 0
     pos = pos || 0;
@@ -242,24 +288,34 @@ GlobTrie.walk = function(node, s, f, pos) {
         var c       = s.charAt(pos),
             sexpr   = node.sexpr;
 
-	    if (c.length > 0 && (sexpr == ":?" || sexpr == c)) {
-    	    // So we have matched either the single-char wildcard or the exact match, we're good, move forth
-    	    for (var i = 0, len = nc.length; i < len; i++) {
-    		    GlobTrie.walk(nc[i], s, f, pos + 1);
-    		}
-        }
-        else if (sexpr == ":*") {
-            // holy crap, we've got a match, but now we've got to really work hard to try to find
-            // a child that matches ANY character in the rest of the string.
-            for (var si = pos, slen = s.length; si <= slen; si++) {
+        if (sexpr != null) {
+            var sexprlen = sexpr.length; // caching this for the speeds
+            
+    	    if (c.length == 1 && ( // these are ordered common to least common case
+    	            (sexprlen == 1 && sexpr == c)    || 
+    	            (sexprlen == 2 && sexpr == ":?") || 
+    	            (sexprlen > 2 && sexpr.charAt(1) == "[" && c.match(node.matcher()))
+    	    )) {
+        	    // So we have matched either the single-char wildcard or the exact match, we're good, move forth
         	    for (var i = 0, len = nc.length; i < len; i++) {
-        		    GlobTrie.walk(nc[i], s, f, si);
+        		    GlobTrie.walk(nc[i], s, f, pos + 1);
         		}
             }
-        }
-        else if (sexpr == ":E" && pos == s.length) {
-            // Match the end of expression to the end of the string
-            f(node);
+            else if (sexprlen == 2) { // pre-qualifying this branch shaves some time off
+                if (sexpr == ":*") {
+                    // holy crap, we've got a match, but now we've got to really work hard to try to find
+                    // a child that matches ANY character in the rest of the string.
+                    for (var si = pos, slen = s.length; si <= slen; si++) {
+                	    for (var i = 0, len = nc.length; i < len; i++) {
+                		    GlobTrie.walk(nc[i], s, f, si);
+                		}
+                    }
+                }
+                else if (sexpr == ":E" && pos == s.length) {
+                    // Match the end of expression to the end of the string
+                    f(node);
+                }
+            }
         }
     }
 };
