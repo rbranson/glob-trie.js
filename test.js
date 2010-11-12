@@ -238,5 +238,11 @@ assert.equal(JSON.stringify(classTrie.collect("\\").sort()), JSON.stringify([
 
 ///////////////////////////////////////
 
+var stupidBugTrie = new GlobTrie();
+stupidBugTrie.add("[0-9][a-z]", "[0-9][a-z]");
+assert.ok(stupidBugTrie.collect("00")[0] != "[0-9][a-z]");
+
+///////////////////////////////////////
+
 console.log("");
 console.log("All tests passed!");

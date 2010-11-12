@@ -157,9 +157,11 @@ GlobTrie.compile = function(expr) {
         }
         else if (isobrk) {
             if (c == "]") {
+                out.push(":[" + buf + "]");
+
                 isobrk  =   false;
                 bufrng  =   false;
-                out.push(":[" + buf + "]");
+                buf     =   "";
             }
             else {
                 buf += c;
