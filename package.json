@@ -1,6 +1,6 @@
 {
     "name":         "glob-trie.js",
-    "version":      "0.2.0",
+    "version":      "0.2.1",
     "author":       "Rick Branson",
     "description":  "A pattern matching search trie for Node.js. Allows fast (logarithmic time) searching against large sets (10,000+) of simple pattern matching expressions.",
     "homepage":     "http://github.com/rbranson/glob-trie.js",
