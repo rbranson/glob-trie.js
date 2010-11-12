@@ -281,8 +281,8 @@ GlobTrie.walk = function(node, s, f, pos) {
     // If we're at the root, don't even try to match, just go for it
     if (node.isRoot()) {
         for (var i = 0, len = nc.length; i < len; i++) {
-		    GlobTrie.walk(nc[i], s, f, pos);
-		}
+            GlobTrie.walk(nc[i], s, f, pos);
+        }
     }
     else {
         var c       = s.charAt(pos),
@@ -297,18 +297,18 @@ GlobTrie.walk = function(node, s, f, pos) {
     	            (sexprlen > 2 && sexpr.charAt(1) == "[" && c.match(node.matcher()))
     	    )) {
         	    // So we have matched either the single-char wildcard or the exact match, we're good, move forth
-        	    for (var i = 0, len = nc.length; i < len; i++) {
-        		    GlobTrie.walk(nc[i], s, f, pos + 1);
-        		}
+                for (var i = 0, len = nc.length; i < len; i++) {
+                    GlobTrie.walk(nc[i], s, f, pos + 1);
+                }
             }
             else if (sexprlen == 2) { // pre-qualifying this branch shaves some time off
                 if (sexpr == ":*") {
                     // holy crap, we've got a match, but now we've got to really work hard to try to find
                     // a child that matches ANY character in the rest of the string.
                     for (var si = pos, slen = s.length; si <= slen; si++) {
-                	    for (var i = 0, len = nc.length; i < len; i++) {
-                		    GlobTrie.walk(nc[i], s, f, si);
-                		}
+                        for (var i = 0, len = nc.length; i < len; i++) {
+                            GlobTrie.walk(nc[i], s, f, si);
+                        }
                     }
                 }
                 else if (sexpr == ":E" && pos == s.length) {
