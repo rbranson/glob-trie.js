@@ -1,3 +1,4 @@
+[![build status](https://secure.travis-ci.org/rbranson/glob-trie.js.png)](http://travis-ci.org/rbranson/glob-trie.js)
 # GlobTrie
 
 A highly optimized way to match strings against a large set of pattern matching expressions quickly. It breaks down the pattern matchers into pieces and organizes them in a Trie (prefix search tree) structure, allowing them to be searched in roughly logarithmic time, versus linear time for just an array of regular expressions, for instance.
